@@ -10,6 +10,8 @@
         "dark elixir drill" : "#422f4d",
         "gold storage" : "#ffff00",
         "elixir storage" : "#a542b2",
-        "dark elixir storage" : "#422f4d"
+        "dark elixir storage" : "#422f4d",
+        "clan castle" : "#0000ff",
+        "army camp" : "#00ff00"
     }
 }
