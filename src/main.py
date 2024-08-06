@@ -14,6 +14,9 @@ def validate_village(buildings: list[dict], building_cache: dict) -> bool:
     :return bool: True if the village is valid, False otherwise
     """
 
+    valid = True
+    warnings: list[str] = []
+
     # Get the townhall building
     townhall = None
     previous_townhall = None
@@ -35,7 +38,7 @@ def validate_village(buildings: list[dict], building_cache: dict) -> bool:
             current_buildings[building_type].append(building_level)
     
     if townhall is None:
-        print("No townhall found")
+        print("No townhall found, unable to validate village!")
         return False
     
     max_resources_count: dict = townhall.get('max number of resource')
@@ -61,69 +64,59 @@ def validate_village(buildings: list[dict], building_cache: dict) -> bool:
     
     for building_type in current_buildings:
         if building_type not in max_combined_count.keys() and building_type != 'townhall':
-            print(f"Building {building_type} not found in townhall")
-            return False
+            warnings.append(f"Building {building_type} not found in townhall")
+            valid = False
         
         if max_combined_count.get(building_type) is None:
-            print(f"Building {building_type} count not found")
+            if building_type != 'townhall':
+                warnings.append(f"Building {building_type} count not found")
             continue
         
         # Check the count
         if len(current_buildings.get(building_type)) > max_combined_count.get(building_type):
-            print(f"Building {building_type} count is more than allowed")
-            return False
+            warnings.append(f"Building {building_type} count is more than allowed")
+            valid = False
 
         # Check the level
         if max_combined_level.get(building_type) is None:
-            print(f"Building {building_type} level not found")
+            warnings.append(f"Building {building_type} level not found")
             continue
 
         if max(current_buildings.get(building_type)) > max_combined_level.get(building_type):
-            print(f"Building {building_type} level is more than allowed")
-            return False
+            warnings.append(f"Building {building_type} level is more than allowed")
+            valid = False
         
     if previous_townhall is None:
-        return True
+        for warning in warnings:
+            print(f'[!] {warning}')
+        return valid
     
     min_resources_count = previous_townhall.get('max number of resource')
-    min_resources_level = previous_townhall.get('max level of resource')
     min_army_count = previous_townhall.get('max number of army')
-    min_army_level = previous_townhall.get('max level of army')
     min_defense_count = previous_townhall.get('max number of defense')
-    min_defense_level = previous_townhall.get('max level of defense')
     min_trap_count = previous_townhall.get('max number of traps')
-    min_trap_level = previous_townhall.get('max level of traps')
 
     # Combine the dictionaries
     min_combined_count = {}
     for d in [min_resources_count, min_army_count, min_defense_count, min_trap_count]:
         for key, value in d.items():
             min_combined_count[key] = min_combined_count.get(key, 0) + value
-    
-    min_combined_level = {}
-    for d in [min_resources_level, min_army_level, min_defense_level, min_trap_level]:
-        for key, value in d.items():
-            min_combined_level[key] = min_combined_level.get(key, 0) + value
+
 
     for min_building in min_combined_count.keys():
         if min_building not in current_buildings:
-            print(f"Building {min_building} not found")
-            return False
+            warnings.append(f"Building {min_building} not found")
+            valid = False
+            continue
 
         if min_combined_count.get(min_building) > len(current_buildings.get(min_building)):
-            print(f"Building {min_building} count is less than required")
-            return False
-        
-    for min_building in min_combined_level.keys():
-        if min_building not in current_buildings:
-            print(f"Building {min_building} not found")
-            return False
-
-        if min_combined_level.get(min_building) > min(current_buildings.get(min_building)):
-            print(f"Building {min_building} level is less than required")
-            return False
+            warnings.append(f"Building {min_building} count is less than required")
+            valid = False
     
-    return True
+    for warning in warnings:
+        print(f'[!] {warning}')
+
+    return valid
 
 
 def generate_sctructure_list(buildings: list[dict], building_cache: dict) -> list[dict]:
@@ -193,11 +186,17 @@ def main(cell_size: int, num_rows: int, num_cols: int, village: dict, building_c
     if village is None:
         return
     
-    buildings = village.get("buildings", [])
-    building_cache = {}
+    buildings: list[dict] | list = village.get("buildings", [])
+    building_cache: dict = {}
     
-    structures = generate_sctructure_list(buildings, building_cache)
-    print(validate_village(structures, building_cache))
+    structures: list[dict] = generate_sctructure_list(buildings, building_cache)
+    valide_villate: bool = validate_village(structures, building_cache)
+
+    if not valide_villate:
+        print("Invalid village")
+    else:
+        print("Valid village")
+
 
     while True:
         for event in pygame.event.get():
