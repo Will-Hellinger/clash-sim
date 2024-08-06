@@ -1,9 +1,9 @@
 {
     "rows" : 44,
     "columns" : 44,
-    "cellSize" : 20,
+    "cell_size" : 20,
     "building_colors" : {
-        "wall" : "#000000",
+        "wall" : "#964B00",
         "townhall" : "#ff0000",
         "gold mine" : "#ffff00",
         "elixir collector" : "#a542b2",

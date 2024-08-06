@@ -176,6 +176,7 @@ def main(cell_size: int, num_rows: int, num_cols: int, village: dict, building_c
     """
     pygame.init()
 
+    print(cell_size)
     window_width = num_cols * cell_size
     window_height = num_rows * cell_size
 
@@ -216,16 +217,34 @@ def main(cell_size: int, num_rows: int, num_cols: int, village: dict, building_c
             position = structure.get("position")
             size = structure.get("size")
 
+            # Calculate the center position of the structure
+            center_x = (position[0] + size.get('width') // 2) * cell_size
+            center_y = (position[1] + size.get('height') // 2) * cell_size
+
+            # Adjust center position for odd-sized structures
+            if size.get('width') % 2 != 0:
+                center_x += cell_size // 2
+            if size.get('height') % 2 != 0:
+                center_y += cell_size // 2
+
+            # Draw the structure
             for row in range(size.get('width')):
                 for col in range(size.get('height')):
                     x = (position[0] + col) * cell_size
                     y = (position[1] + row) * cell_size
 
-                    #use building color
+                    # Use building color
                     if structure.get('type') in building_colors:
                         pygame.draw.rect(window, building_colors[structure.get('type')], (x, y, cell_size, cell_size))
                     else:
                         pygame.draw.rect(window, (0, 0, 0), (x, y, cell_size, cell_size))
+
+            # Draw level in the middle
+            level = structure.get('level')
+            font = pygame.font.Font(None, 20)
+            text = font.render(str(level), True, (0, 0, 0))
+            text_rect = text.get_rect(center=(center_x, center_y))
+            window.blit(text, text_rect)
                     
         # Update the display
         pygame.display.flip()
@@ -238,8 +257,8 @@ if __name__ == "__main__":
     
     # Extract the configuration values
     cell_size: int = config.get("cell_size", 10)
-    num_rows: int = config.get("num_rows", 44)
-    num_cols: int = config.get("num_cols", 44)
+    num_rows: int = config.get("rows", 44)
+    num_cols: int = config.get("cols", 44)
     building_colors: dict = config.get("building_colors", {})
     village = None
 
