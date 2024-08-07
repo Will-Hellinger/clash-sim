@@ -24,24 +24,24 @@ def validate_village(buildings: list[dict], building_cache: dict) -> bool:
     positions = []
 
     for building in buildings:
-        building_type: str = building.get("type")
+        building_name: str = building.get("name")
         building_level: int = int(building.get("level"))
 
-        if building_type == 'townhall':
+        if building_name == 'townhall':
             townhall = building
         
             if 'townhall' in building_cache and building_level > 1:
                 previous_townhall = building_cache['townhall'][str(building_level - 1)]
             
-        if building_type not in current_buildings:
-            current_buildings[building_type] = [building_level]
+        if building_name not in current_buildings:
+            current_buildings[building_name] = [building_level]
         else:
-            current_buildings[building_type].append(building_level)
+            current_buildings[building_name].append(building_level)
         
         if not building.get('positions') in positions:
             positions.append(building.get('positions'))
         else:
-            warnings.append(f"Building {building_type} is overlapping with another building")
+            warnings.append(f"Building {building_name} is overlapping with another building")
             valid = False
     
     if townhall is None:
@@ -68,28 +68,28 @@ def validate_village(buildings: list[dict], building_cache: dict) -> bool:
         for key, value in d.items():
             max_combined_level[key] = max_combined_level.get(key, 0) + value
     
-    for building_type in current_buildings:
-        if building_type not in max_combined_count.keys() and building_type != 'townhall':
-            warnings.append(f"Building {building_type} not found in townhall")
+    for building_name in current_buildings:
+        if building_name not in max_combined_count.keys() and building_name != 'townhall':
+            warnings.append(f"Building {building_name} not found in townhall")
             valid = False
         
-        if max_combined_count.get(building_type) is None:
-            if building_type != 'townhall':
-                warnings.append(f"Building {building_type} count not found")
+        if max_combined_count.get(building_name) is None:
+            if building_name != 'townhall':
+                warnings.append(f"Building {building_name} count not found")
             continue
         
         # Check the count
-        if len(current_buildings.get(building_type)) > max_combined_count.get(building_type):
-            warnings.append(f"Building {building_type} count is more than allowed")
+        if len(current_buildings.get(building_name)) > max_combined_count.get(building_name):
+            warnings.append(f"Building {building_name} count is more than allowed")
             valid = False
 
         # Check the level
-        if max_combined_level.get(building_type) is None:
-            warnings.append(f"Building {building_type} level not found")
+        if max_combined_level.get(building_name) is None:
+            warnings.append(f"Building {building_name} level not found")
             continue
 
-        if max(current_buildings.get(building_type)) > max_combined_level.get(building_type):
-            warnings.append(f"Building {building_type} level is more than allowed")
+        if max(current_buildings.get(building_name)) > max_combined_level.get(building_name):
+            warnings.append(f"Building {building_name} level is more than allowed")
             valid = False
         
     if previous_townhall is None:
@@ -124,55 +124,122 @@ def validate_village(buildings: list[dict], building_cache: dict) -> bool:
     return valid
 
 
-def generate_sctructure_list(buildings: list[dict], building_cache: dict) -> list[dict]:
+def generate_structures_list(buildings: list[dict], building_cache: dict, cell_size: int) -> list[dict]:
     """
     Generate the structures from the buildings in the village
 
     :param buildings: The list of buildings in the village
     :param building_cache: The cache of building data
+    :param cell_size: The size of each cell in the grid
     :return list[dict]: The list of structures
     """
 
     structures: list[dict] = []
 
     for building in buildings:
-        building_type: str = building.get("type")
+        building_name: str = building.get("type")
         building_level: str = str(building.get("level"))
 
-        if building_type not in building_cache:
-            building_data: dict = json.load(open(f".{os.sep}data{os.sep}structures{os.sep}{building_type.replace(' ', '_')}.json"))
-            building_cache[building_type] = building_data
+        if building_name not in building_cache:
+            building_data: dict = json.load(open(f".{os.sep}data{os.sep}structures{os.sep}{building_name.replace(' ', '_')}.json"))
+            building_cache[building_name] = building_data
 
-        building_size: dict = building_cache[building_type].get("size")
-        building_inset: float = building_cache[building_type].get("inset")
+        building_size: dict = building_cache[building_name].get("size")
+        building_inset: float = building_cache[building_name].get("inset")
+        building_type: str = building_cache[building_name].get("type")
 
-        if building_cache[building_type].get("max count") == 1:
-            structure: dict = building_cache[building_type][building_level]
-            structure['level'] = building_level
-            structure['type'] = building_type
-            structure['position'] = [building.get("x"), building.get("y")]
-            structure['size'] = building_size
-            structure['inset'] = building_inset
+        # Check if the building has only one position, if so then make a list of one position
+        if building_cache[building_name].get("max count") == 1:
+            building_positions: list[list[int]] = [[building.get("x"), building.get("y")]]
+        else:
+            building_positions: list[list[int]] = building.get('positions')
+
+
+        for position in building_positions:
+            structure: dict = copy.deepcopy(building_cache[building_name][building_level])
+
+            # WAY more optimized to generate center once, rather than every frame
+            # Calculate the center position of the structure
+            center_x: int = (position[0] + building_size.get('width') // 2) * cell_size
+            center_y: int = (position[1] + building_size.get('height') // 2) * cell_size
+
+            # Adjust center position for odd-sized structures
+            if building_size.get('width') % 2 != 0:
+                center_x += cell_size // 2
+            if building_size.get('height') % 2 != 0:
+                center_y += cell_size // 2
+
+            structure.update({
+                'level': building_level,
+                'name': building_name,
+                'type': building_type,
+                'position': position,
+                'center': [center_x, center_y],
+                'size': building_size,
+                'inset': building_inset
+            })
+            
+            if building_name == 'army camp':
+                structure['troops'] = building.get('troops')
 
             structures.append(structure)
-            
-        else:
-            building_position: list[list[int]] = building.get('positions')
-
-            for position in building_position:
-                structure: dict = copy.deepcopy(building_cache[building_type][building_level])
-                structure['level'] = building_level
-                structure['type'] = building_type
-                structure['position'] = position
-                structure['size'] = building_size
-                structure['inset'] = building_inset
-                
-                if building_type == 'army camp':
-                    structure['troops'] = building.get('troops')
-
-                structures.append(structure)
 
     return structures
+
+
+def draw_grid(window: pygame.surface, cell_size: int, num_rows: int, num_cols: int) -> None:
+    """
+    Draw the grid on the window
+
+    :param window: The window to draw the grid on
+    :param cell_size: The size of each cell in the grid
+    :param num_rows: The number of rows in the grid
+    :param num_cols: The number of columns in the grid
+    :return None:
+    """
+
+    # Clear the window
+    window.fill((255, 255, 255))
+
+    for row in range(num_rows):
+        for col in range(num_cols):
+            pygame.draw.rect(window, (0, 0, 0), (col * cell_size, row * cell_size, cell_size, cell_size), 1)
+
+
+def draw_structures(window: pygame.surface, cell_size: int, structures: list[dict], building_colors: dict) -> None:
+    """
+    Draw the structures on the window
+
+    :param window: The window to draw the structures on
+    :param cell_size: The size of each cell in the grid
+    :param structures: The list of structures to draw
+    :param building_colors: The colors of the buildings
+    :return None:
+    """
+
+    for structure in structures:
+        position: list[int] = structure.get("position")
+        size: dict = structure.get("size")
+        center: list[int] = structure.get("center")
+
+        # Draw the structure
+        for row in range(size.get('width')):
+            for col in range(size.get('height')):
+                x: int = (position[0] + col) * cell_size
+                y: int = (position[1] + row) * cell_size
+
+                # Use building color
+                if structure.get('name') in building_colors:
+                    pygame.draw.rect(window, building_colors[structure.get('name')], (x, y, cell_size, cell_size))
+                else:
+                    pygame.draw.rect(window, (0, 0, 0), (x, y, cell_size, cell_size))
+
+        # Draw level in the middle
+        level: int = structure.get('level')
+        font: pygame.font = pygame.font.Font(None, 20)
+        text = font.render(str(level), True, (0, 0, 0))
+        text_rect = text.get_rect(center=(center[0], center[1]))
+        window.blit(text, text_rect)
 
 
 def main(cell_size: int, num_rows: int, num_cols: int, fps: int, village: dict, building_colors: dict) -> None:
@@ -204,7 +271,7 @@ def main(cell_size: int, num_rows: int, num_cols: int, fps: int, village: dict, 
     buildings: list[dict] | list = village.get("buildings", [])
     building_cache: dict = {}
     
-    structures: list[dict] = generate_sctructure_list(buildings, building_cache)
+    structures: list[dict] = generate_structures_list(buildings, building_cache, cell_size)
     valide_villate: bool = validate_village(structures, building_cache)
 
     if not valide_villate:
@@ -212,53 +279,13 @@ def main(cell_size: int, num_rows: int, num_cols: int, fps: int, village: dict, 
     else:
         print("Valid village")
 
-
     while True:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 return None
 
-        # Clear the window
-        window.fill((255, 255, 255))
-
-        # Draw the grid
-        for row in range(num_rows):
-            for col in range(num_cols):
-                pygame.draw.rect(window, (0, 0, 0), (col * cell_size, row * cell_size, cell_size, cell_size), 1)
-        
-        # Draw the structures
-        for structure in structures:
-            position: list[int] = structure.get("position")
-            size: dict = structure.get("size")
-
-            # Calculate the center position of the structure
-            center_x: int = (position[0] + size.get('width') // 2) * cell_size
-            center_y: int = (position[1] + size.get('height') // 2) * cell_size
-
-            # Adjust center position for odd-sized structures
-            if size.get('width') % 2 != 0:
-                center_x += cell_size // 2
-            if size.get('height') % 2 != 0:
-                center_y += cell_size // 2
-
-            # Draw the structure
-            for row in range(size.get('width')):
-                for col in range(size.get('height')):
-                    x: int = (position[0] + col) * cell_size
-                    y: int = (position[1] + row) * cell_size
-
-                    # Use building color
-                    if structure.get('type') in building_colors:
-                        pygame.draw.rect(window, building_colors[structure.get('type')], (x, y, cell_size, cell_size))
-                    else:
-                        pygame.draw.rect(window, (0, 0, 0), (x, y, cell_size, cell_size))
-
-            # Draw level in the middle
-            level: int = structure.get('level')
-            font: pygame.font = pygame.font.Font(None, 20)
-            text = font.render(str(level), True, (0, 0, 0))
-            text_rect = text.get_rect(center=(center_x, center_y))
-            window.blit(text, text_rect)
+        draw_grid(window, cell_size, num_rows, num_cols)
+        draw_structures(window, cell_size, structures, building_colors)
                     
         # Update the display
         pygame.display.flip()

@@ -8,10 +8,11 @@
         "gold mine" : "#ffff00",
         "elixir collector" : "#a542b2",
         "dark elixir drill" : "#422f4d",
-        "gold storage" : "#ffff00",
-        "elixir storage" : "#a542b2",
-        "dark elixir storage" : "#422f4d",
+        "gold storage" : "#d9d900",
+        "elixir storage" : "#8c2d8c",
+        "dark elixir storage" : "#2d1f2d",
         "clan castle" : "#0000ff",
-        "army camp" : "#00ff00"
+        "army camp" : "#00ff00",
+        "barrack" : "#ff00ff"
     }
 }
