@@ -3,9 +3,10 @@ import copy
 import json
 import pygame
 import argparse
+from game_logic import *
 
 
-def validate_village(buildings: list[dict], building_cache: dict) -> bool:
+def validate_village(buildings: dict, building_cache: dict) -> bool:
     """
     Validate the village data
 
@@ -21,9 +22,8 @@ def validate_village(buildings: list[dict], building_cache: dict) -> bool:
     townhall: dict | None = None
     previous_townhall: dict | None = None
     current_buildings: dict = {}
-    positions = []
 
-    for building in buildings:
+    for building in buildings.values():
         building_name: str = building.get("name")
         building_level: int = int(building.get("level"))
 
@@ -37,12 +37,7 @@ def validate_village(buildings: list[dict], building_cache: dict) -> bool:
             current_buildings[building_name] = [building_level]
         else:
             current_buildings[building_name].append(building_level)
-        
-        if not building.get('positions') in positions:
-            positions.append(building.get('positions'))
-        else:
-            warnings.append(f"Building {building_name} is overlapping with another building")
-            valid = False
+
     
     if townhall is None:
         print("No townhall found, unable to validate village!")
@@ -124,17 +119,18 @@ def validate_village(buildings: list[dict], building_cache: dict) -> bool:
     return valid
 
 
-def generate_structures_list(buildings: list[dict], building_cache: dict, cell_size: int) -> list[dict]:
+def generate_structures_info(buildings: list[dict], building_cache: dict, cell_size: int) -> dict:
     """
     Generate the structures from the buildings in the village
 
     :param buildings: The list of buildings in the village
     :param building_cache: The cache of building data
     :param cell_size: The size of each cell in the grid
-    :return list[dict]: The list of structures
+    :return dict: The list of structures
     """
 
-    structures: list[dict] = []
+    structures: dict = {}
+    ids: dict = {}
 
     for building in buildings:
         building_name: str = building.get("type")
@@ -178,11 +174,26 @@ def generate_structures_list(buildings: list[dict], building_cache: dict, cell_s
                 'size': building_size,
                 'inset': building_inset
             })
+
+            if building_type == 'defense':
+                structure.update({
+                    'range': building_cache[building_name].get('range'),
+                    'attack speed': building_cache[building_name].get('attack speed'),
+                    'targets': building_cache[building_name].get('targets'),
+                    'targets count': building_cache[building_name].get('targets count')
+                })
             
             if building_name == 'army camp':
                 structure['troops'] = building.get('troops')
 
-            structures.append(structure)
+            if building_name not in ids:
+                ids[building_name] = 0
+                id = f'{building_name}{ids[building_name]}'
+            else:
+                ids[building_name] += 1
+                id = f'{building_name}{ids[building_name]}'
+            
+            structures[id] = structure
 
     return structures
 
@@ -206,7 +217,7 @@ def draw_grid(window: pygame.surface, cell_size: int, num_rows: int, num_cols: i
             pygame.draw.rect(window, (0, 0, 0), (col * cell_size, row * cell_size, cell_size, cell_size), 1)
 
 
-def draw_structures(window: pygame.surface, cell_size: int, structures: list[dict], building_colors: dict) -> None:
+def draw_structures(window: pygame.surface, cell_size: int, structures: dict, building_colors: dict) -> None:
     """
     Draw the structures on the window
 
@@ -217,7 +228,10 @@ def draw_structures(window: pygame.surface, cell_size: int, structures: list[dic
     :return None:
     """
 
-    for structure in structures:
+    for structure in structures.values():
+        if structure is None:
+            continue
+            
         position: list[int] = structure.get("position")
         size: dict = structure.get("size")
         center: list[int] = structure.get("center")
@@ -271,7 +285,7 @@ def main(cell_size: int, num_rows: int, num_cols: int, fps: int, village: dict, 
     buildings: list[dict] | list = village.get("buildings", [])
     building_cache: dict = {}
     
-    structures: list[dict] = generate_structures_list(buildings, building_cache, cell_size)
+    structures: dict = generate_structures_info(buildings, building_cache, cell_size)
     valide_villate: bool = validate_village(structures, building_cache)
 
     if not valide_villate:
@@ -296,8 +310,14 @@ def main(cell_size: int, num_rows: int, num_cols: int, fps: int, village: dict, 
 
 if __name__ == "__main__":
     # Load the configuration file
+    config_file_path: str = f".{os.sep}data{os.sep}config.json"
+
+    if not os.path.exists(config_file_path):
+        print("Configuration file not found")
+        exit(1)
+    
     with open(f".{os.sep}data{os.sep}config.json") as file:
-        config = json.load(file)
+        config: dict = json.load(file)
     
     # Extract the configuration values
     cell_size: int = config.get("cell_size", 10)
